@@ -1,0 +1,61 @@
+-- This file has been generated from package.yaml by hpack version 0.17.0.
+--
+-- see: https://github.com/sol/hpack
+
+name:           blog
+version:        0.0.0
+category:       Web
+homepage:       https://github.com/anfelor/blog#readme
+bug-reports:    https://github.com/anfelor/blog/issues
+author:         Anton Felix Lorenzen
+license:        MIT
+license-file:   LICENSE
+build-type:     Simple
+cabal-version:  >= 1.10
+
+source-repository head
+  type: git
+  location: https://github.com/anfelor/blog
+
+flag production
+  manual: True
+  default: False
+
+executable blog
+  main-is: Main.hs
+  hs-source-dirs:
+      src
+  default-extensions: DeriveFunctor DeriveGeneric NoImplicitPrelude OverloadedLists OverloadedStrings RecordWildCards GeneralizedNewtypeDeriving
+  ghc-options: -Wall -Wno-missing-signatures -Wno-unused-do-bind -optl-fuse-ld=gold
+  ld-options: -fuse-ld=gold
+  build-depends:
+      base >= 4.7 && < 5
+    , blaze-html
+    , blaze-markup == 0.7.1.1
+    , bytestring
+    , containers
+    , directory
+    , dhall
+    , filepath
+    , hashable
+    , mtl
+    , pandoc
+    , pandoc-types
+    , process
+    , protolude
+    , split
+    , text
+    , time
+    , unordered-containers
+    , vector
+  if flag(production)
+    ghc-options: -O2 -Werror
+  else
+    ghc-options: -O0 -dynamic
+  other-modules:
+      Config
+      Imports
+      Page
+      Sitemap
+      Types
+  default-language: Haskell2010

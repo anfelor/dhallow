@@ -1,0 +1,55 @@
+name: blog
+author: Anton Felix Lorenzen
+license: MIT
+github: anfelor/blog
+category: Web
+
+flags:
+  production:
+    default: false
+    manual: true
+
+when:
+  - condition: flag(production)
+    then:
+      ghc-options: -O2 -Werror
+    else:
+      ghc-options: -O0
+
+ghc-options: -Wall -Wno-missing-signatures -Wno-unused-do-bind -optl-fuse-ld=gold
+ld-options:  -fuse-ld=gold
+
+default-extensions:
+  - DeriveFunctor
+  - DeriveGeneric
+  - NoImplicitPrelude
+  - OverloadedLists
+  - OverloadedStrings
+  - RecordWildCards
+  - GeneralizedNewtypeDeriving 
+
+dependencies:
+  - base >= 4.7 && < 5
+  - blaze-html
+  - blaze-markup == 0.7.1.1
+  - bytestring
+  - containers
+  - directory
+  - dhall
+  - filepath
+  - hashable
+  - mtl
+  - pandoc
+  - pandoc-types
+  - process
+  - protolude
+  - split
+  - text
+  - time
+  - unordered-containers
+  - vector
+
+executables:
+  blog:
+    main: Main.hs
+    source-dirs: src
