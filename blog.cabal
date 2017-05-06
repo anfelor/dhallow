@@ -51,7 +51,7 @@ executable blog
   if flag(production)
     ghc-options: -O2 -Werror
   else
-    ghc-options: -O0 -dynamic
+    ghc-options: -O0
   other-modules:
       Config
       Imports
