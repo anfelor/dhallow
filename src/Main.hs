@@ -42,9 +42,9 @@ writeFiles :: [(Text, Entry Pandoc Day)] -> IO ()
 writeFiles entries = do
   config@Config{..} <- readConfig
 
-  removePathForcibly "blog"
-  createDirectory "blog"
-  setCurrentDirectory "blog"
+  removePathForcibly configFolder
+  createDirectory configFolder
+  setCurrentDirectory configFolder
 
   writeFrontPages config entries
   writeEntries config entries

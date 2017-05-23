@@ -8,6 +8,7 @@ module Config
 import Imports
 import qualified Dhall
 import qualified Data.Vector as V
+import qualified Data.Text.Lazy as TL
 
 data Config = Config
   { configCss :: [CssConfig]
@@ -17,6 +18,7 @@ data Config = Config
   , configHttps :: Bool
   , configAuthor :: Dhall.Text
   , configSiteName :: Dhall.Text
+  , configFolder :: FilePath
   } deriving (Eq, Show)
 
 data DhallConfig = DhallConfig
@@ -27,6 +29,7 @@ data DhallConfig = DhallConfig
   , https :: Bool
   , author :: Dhall.Text
   , siteName :: Dhall.Text
+  , folder :: Dhall.Text
   } deriving (Eq, Generic)
 instance Dhall.Interpret DhallConfig
 
@@ -53,5 +56,6 @@ readConfig = do
     , configHttps = https
     , configAuthor = author
     , configSiteName = siteName
+    , configFolder = TL.unpack folder
     }
 
