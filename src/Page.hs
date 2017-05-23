@@ -37,7 +37,7 @@ data PageInfo = PageInfo
 standardPage :: Config -> Page -> BL.ByteString
 standardPage Config{..} Page{..} = renderMarkup $ do
   docType
-  html ! lang "en_US" $ do
+  html ! lang (toValue configLocale) $ do
     head $ do
       let url = "https://anfelor.github.io/blog/" <> pageUrl
 
@@ -58,8 +58,8 @@ standardPage Config{..} Page{..} = renderMarkup $ do
       -- Open graph protocol. See http://ogp.me/ for more information.
       meta ! customAttribute "property" "og:title" ! content (toAttr pageTitle)
       meta ! customAttribute "property" "og:description" ! content (toAttr pageDescription)
-      meta ! customAttribute "property" "og:locale" ! content "en_US" -- TODO: Add i18n
-      meta ! customAttribute "property" "og:site_name" ! content "Anton Lorenzen's blog"
+      meta ! customAttribute "property" "og:locale" ! content (toValue configLocale)
+      meta ! customAttribute "property" "og:site_name" ! content (toValue configSiteName)
       meta ! customAttribute "property" "og:url" ! content (toValue url)
       case pageInfo of
         Nothing -> meta ! customAttribute "property" "og:type" ! content "website"
@@ -69,17 +69,20 @@ standardPage Config{..} Page{..} = renderMarkup $ do
               ! content (toValue $ formatTime defaultTimeLocale "%F" pageCreated)
           meta ! customAttribute "property" "og:article:modified_time"
               ! content (toValue $ formatTime defaultTimeLocale "%F" pageUpdated)
-          meta ! customAttribute "property" "og:article:author" ! content "Anton Felix Lorenzen"
+          meta ! customAttribute "property" "og:article:author" ! content (toValue configAuthor)
           forM_ pageKeywords $ \kw -> do
             meta ! customAttribute "property" "og:article:tag" ! content (toValue $ displayTitle kw)
       meta ! customAttribute "property" "og:image" ! content "https://anfelor.github.io/img/anfelor_profile.jpg"
 
       -- Twitter cards
-      meta ! name "twitter:card" ! content "summary"
-      meta ! name "twitter:site" ! content "@anton_lorenzen"
-      meta ! name "twitter:title" ! content (toAttr pageTitle)
-      meta ! name "twitter:description" ! content (toAttr pageDescription)
-      meta ! name "twitter:image" ! content "https://anfelor.github.io/img/anfelor_profile.jpg"
+      case configTwitter of
+        Nothing -> mempty
+        Just (TwitterConfig{..}) -> do
+          meta ! name "twitter:card" ! content "summary"
+          meta ! name "twitter:site" ! content (toValue twitterHandle)
+          meta ! name "twitter:title" ! content (toAttr pageTitle)
+          meta ! name "twitter:description" ! content (toAttr pageDescription)
+          meta ! name "twitter:image" ! content (toValue twitterImageUrl)
 
       forM_ configCss $ \CssConfig{..} -> do
         link ! rel "stylesheet" ! href (toValue cssSrc)
@@ -93,7 +96,7 @@ standardPage Config{..} Page{..} = renderMarkup $ do
           $ Text.Blaze.Html5.span $ mempty
         div ! id "menu" $ do
           div ! class_ "pure-menu" $ do
-            a ! class_ "pure-menu-heading" ! href "/blog" $ "Anton Felix Lorenzen"
+            a ! class_ "pure-menu-heading" ! href "/blog" $ toMarkup configAuthor
             sidebarTop
           div ! class_ "pure-menu menu-bottom" $ do
             sidebarBottom

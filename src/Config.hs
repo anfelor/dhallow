@@ -2,10 +2,11 @@ module Config
   ( Config(..)
   , CssConfig(..)
   , JsConfig(..)
+  , TwitterConfig(..)
   , readConfig
   ) where
 
-import Imports
+import Imports hiding (handle)
 import qualified Dhall
 import qualified Data.Vector as V
 import qualified Data.Text.Lazy as TL
@@ -19,6 +20,8 @@ data Config = Config
   , configAuthor :: Dhall.Text
   , configSiteName :: Dhall.Text
   , configFolder :: FilePath
+  , configTwitter :: Maybe TwitterConfig
+  , configLocale :: Dhall.Text
   } deriving (Eq, Show)
 
 data DhallConfig = DhallConfig
@@ -30,6 +33,8 @@ data DhallConfig = DhallConfig
   , author :: Dhall.Text
   , siteName :: Dhall.Text
   , folder :: Dhall.Text
+  , twitter :: Maybe DhallTwitterConfig
+  , locale :: Dhall.Text
   } deriving (Eq, Generic)
 instance Dhall.Interpret DhallConfig
 
@@ -44,6 +49,18 @@ data JsConfig = JsConfig
   } deriving (Eq, Show, Generic)
 instance Dhall.Interpret JsConfig
 
+data DhallTwitterConfig = DhallTwitterConfig
+  { handle :: Dhall.Text
+  , imageUrl :: Dhall.Text
+  } deriving (Eq, Show, Generic)
+instance Dhall.Interpret DhallTwitterConfig
+
+data TwitterConfig = TwitterConfig
+  { twitterHandle :: Dhall.Text
+  , twitterImageUrl :: Dhall.Text
+  } deriving (Eq, Show, Generic)
+instance Dhall.Interpret TwitterConfig
+
 readConfig :: IO Config
 readConfig = do
   file <- readFile "config.dhall"
@@ -57,5 +74,8 @@ readConfig = do
     , configAuthor = author
     , configSiteName = siteName
     , configFolder = TL.unpack folder
+    , configTwitter = convertTwitter <$> twitter
+    , configLocale = locale
     }
-
+  where
+    convertTwitter dt = TwitterConfig (handle dt) (imageUrl dt)

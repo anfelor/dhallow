@@ -22,6 +22,7 @@ ld-options:  -fuse-ld=gold
 default-extensions:
   - DeriveFunctor
   - DeriveGeneric
+  - FlexibleContexts
   - NoImplicitPrelude
   - OverloadedLists
   - OverloadedStrings
@@ -39,6 +40,7 @@ dependencies:
   - filepath
   - hashable
   - mtl
+  - optparse-applicative
   - pandoc
   - pandoc-types
   - process
@@ -46,6 +48,7 @@ dependencies:
   - split
   - text
   - time
+  - transformers
   - unordered-containers
   - vector
 

@@ -25,7 +25,7 @@ executable dhallow
   main-is: Main.hs
   hs-source-dirs:
       src
-  default-extensions: DeriveFunctor DeriveGeneric NoImplicitPrelude OverloadedLists OverloadedStrings RecordWildCards GeneralizedNewtypeDeriving
+  default-extensions: DeriveFunctor DeriveGeneric FlexibleContexts NoImplicitPrelude OverloadedLists OverloadedStrings RecordWildCards GeneralizedNewtypeDeriving
   ghc-options: -Wall -Wno-missing-signatures -Wno-unused-do-bind -optl-fuse-ld=gold
   ld-options: -fuse-ld=gold
   build-depends:
@@ -39,6 +39,7 @@ executable dhallow
     , filepath
     , hashable
     , mtl
+    , optparse-applicative
     , pandoc
     , pandoc-types
     , process
@@ -46,6 +47,7 @@ executable dhallow
     , split
     , text
     , time
+    , transformers
     , unordered-containers
     , vector
   if flag(production)

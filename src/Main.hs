@@ -44,6 +44,7 @@ writeFiles entries = do
 
   removePathForcibly configFolder
   createDirectory configFolder
+  putStrLn $ "Switching into directory '" <> configFolder <> "'."
   setCurrentDirectory configFolder
 
   writeFrontPages config entries
@@ -106,6 +107,7 @@ writeEntries config@Config{..} entries = do
   latexTemplate <- readFile (".." </> TL.unpack configLatexTemplate)
   forM_ entries $ \(u, e) -> do
     createDirectoryIfMissing False "posts"
+    putStrLn $ "Writing '" <> u <> "'"
     BL.writeFile (T.unpack u) $ renderPage config (u, e)
     let pdfOptions = def {
         writerHighlight = True
@@ -120,7 +122,12 @@ writeEntries config@Config{..} entries = do
         , ("geometry", "margin=3cm")
         ]
       }
+
+    let pdfname = T.unpack u -<.> ".pdf"
+    putStrLn $ "Writing '" <> pdfname <> "'"
     pdf <- makePDF "xelatex" writeLaTeX pdfOptions (entryContent e)
     case pdf of
-      Left b -> putStr ("Error while creating pdf: " <> b)
-      Right b -> BL.writeFile (T.unpack u -<.> ".pdf") b
+      Left b -> putStr $ "Error while creating '"
+                      <> BL.pack (map (fromIntegral . ord) pdfname)
+                      <> "': " <> b
+      Right b -> BL.writeFile pdfname b
