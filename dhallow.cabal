@@ -3,7 +3,7 @@
 -- see: https://github.com/sol/hpack
 
 name:           dhallow
-version:        0.0.0
+version:        0.1.0.0
 category:       Web
 homepage:       https://github.com/anfelor/blog#readme
 bug-reports:    https://github.com/anfelor/blog/issues
