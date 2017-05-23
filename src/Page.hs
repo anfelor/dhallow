@@ -104,6 +104,8 @@ standardPage Config{..} Page{..} = renderMarkup $ do
             p pageDescription
             mainContent
           div ! class_ "footer" $ do
+            a ! href "http://www.haskellers.com/user/4599" $ do
+              img ! src "http://www.haskellers.com/static/badge.png" ! alt "I'm a Haskeller"
             div ! id "imprint-link" $ do
               a ! href "/blog/imprint.html" $ "Imprint"
             div ! id "privacy-link" $ do
