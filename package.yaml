@@ -1,4 +1,4 @@
-name: blog
+name: dhallow
 author: Anton Felix Lorenzen
 license: MIT
 github: anfelor/blog
@@ -50,6 +50,6 @@ dependencies:
   - vector
 
 executables:
-  blog:
+  dhallow:
     main: Main.hs
     source-dirs: src

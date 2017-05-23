@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 
-name:           blog
+name:           dhallow
 version:        0.0.0
 category:       Web
 homepage:       https://github.com/anfelor/blog#readme
@@ -21,7 +21,7 @@ flag production
   manual: True
   default: False
 
-executable blog
+executable dhallow
   main-is: Main.hs
   hs-source-dirs:
       src
