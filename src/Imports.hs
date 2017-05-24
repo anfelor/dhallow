@@ -26,13 +26,7 @@ import Text.Pandoc as Exports hiding (Space, Format, Reader, Meta)
 import qualified Data.Text as T
 
 
-class Show a => Display a where
-  displayTitle :: a -> Text
-  displayTitle a = "Posts about " <> displayShow a <> "."
-
-  displayDescription :: a -> Text
-  displayDescription a = "Posts about " <> displayShow a <> "."
-
+class Show a => UrlDisplay a where
   -- | Turn the showable into a string, splitting it into it's word parts
   -- and joining them with a dash '-'. The result is all lower case.
   displayUrl :: a -> Text
@@ -60,10 +54,10 @@ class Show a => Display a where
         _ -> ""
 
   -- | Allows you to keep the default implementation of the
-  -- functions above, while customizing the way your datatype is shown.
+  -- function above, while customizing the way your datatype is shown.
   -- It must guarantee to return non-empty text.
   displayShow :: a -> Text
   displayShow = show
 
-instance Display Text where
+instance UrlDisplay Text where
   displayShow = T.map toLower

@@ -71,7 +71,7 @@ standardPage Config{..} Page{..} = renderMarkup $ do
               ! content (toValue $ formatTime defaultTimeLocale "%F" pageUpdated)
           meta ! customAttribute "property" "og:article:author" ! content (toValue configAuthor)
           forM_ pageKeywords $ \kw -> do
-            meta ! customAttribute "property" "og:article:tag" ! content (toValue $ displayTitle kw)
+            meta ! customAttribute "property" "og:article:tag" ! content (toValue $ keywordTitle kw)
       meta ! customAttribute "property" "og:image" ! content "https://anfelor.github.io/img/anfelor_profile.jpg"
 
       -- Twitter cards
@@ -119,17 +119,17 @@ standardPage Config{..} Page{..} = renderMarkup $ do
     toAttr = toValue . TextRenderer.renderMarkup . contents
 
 
-renderFrontPage :: Config -> Maybe Keyword -> [Headline] -> BL.ByteString
-renderFrontPage config@Config{..} ma headlines = standardPage config $ Page
-  { pageTitle = toMarkup $ maybe "Posts" displayTitle ma
-  , pageDescription = toMarkup $ maybe "" displayDescription ma
+renderFrontPage :: Config -> Maybe Keyword -> [Keyword] -> [Headline] -> BL.ByteString
+renderFrontPage config@Config{..} ma allKeywords headlines = standardPage config $ Page
+  { pageTitle = toMarkup $ maybe "Posts" keywordTitle ma
+  , pageDescription = toMarkup $ maybe "" keywordDescription ma
   , pageUrl = url
   , pageInfo = Nothing
   , sidebarTop = ul ! class_ "pure-menu-list"
-        $ forM_ ([minBound .. maxBound] :: [Keyword]) $ \c ->
+        $ forM_ allKeywords $ \c ->
             li ! class_ "pure-menu-item"
               $ a ! class_ "pure-menu-link" ! href (stringValue $ T.unpack $ "/blog/" <> displayUrl c <> "/")
-                  $ toMarkup $ displayTitle c
+                  $ toMarkup $ keywordTitle c
   , sidebarBottom = ul ! class_ "pure-menu-list" $ do
       li ! class_ "pure-menu-item" $ a ! class_ "pure-menu-link" ! href "https://twitter.com/anton_lorenzen" $ "Twitter"
       li ! class_ "pure-menu-item" $ a ! class_ "pure-menu-link" ! href "https://github.com/anfelor" $ "Github"

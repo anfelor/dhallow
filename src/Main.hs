@@ -32,14 +32,19 @@ main = do
       (Left p1, _) -> fail $ "Encountered pandoc error: " <> show p1
       (_, Left p2) -> fail $ "Encountered pandoc error: " <> show p2
 
+  keywordFiles <- filterM (doesFileExist . ("keywords/"++)) =<< listDirectory "keywords/"
+  allKeywords <- forM keywordFiles $ \k -> do
+    t <- readFile ("keywords/" ++ k)
+    Dhall.input Dhall.auto (fromStrict t)
+
   case addEntryURLs entries of
     Left e -> do
       fail $ "Couldn't create a unique url for entry:" <> show e
-    Right en -> writeFiles en
+    Right en -> writeFiles en allKeywords
 
 
-writeFiles :: [(Text, Entry Pandoc Day)] -> IO ()
-writeFiles entries = do
+writeFiles :: [(Text, Entry Pandoc Day)] -> [Keyword] -> IO ()
+writeFiles entries allKeywords = do
   config@Config{..} <- readConfig
 
   removePathForcibly configFolder
@@ -47,13 +52,13 @@ writeFiles entries = do
   putStrLn $ "Switching into directory '" <> configFolder <> "'."
   setCurrentDirectory configFolder
 
-  writeFrontPages config entries
-  writeEntries config entries
-  writeSitemap config entries
+  writeFrontPages config entries allKeywords
+  writeEntries config entries allKeywords
+  writeSitemap config entries allKeywords
 
 
-writeSitemap :: Config -> [(Text, Entry Pandoc Day)] -> IO ()
-writeSitemap config entries = do
+writeSitemap :: Config -> [(Text, Entry Pandoc Day)] -> [Keyword] -> IO ()
+writeSitemap config entries allKeywords = do
   today <- utctDay <$> getCurrentTime
   BL.writeFile "sitemap.xml" $ createSitemap config $ (concat :: [[a]] -> [a])
     [ flip map entries $ \(url, Entry{..}) ->
@@ -68,7 +73,7 @@ writeSitemap config entries = do
           , pageLastMod = entryUpdated
           , pageType = Article entryImportance
           }
-    , flip map ([minBound .. maxBound] :: [Keyword]) $ \k -> do
+    , flip map allKeywords $ \k -> do
         PageData
           { pageLocation = displayUrl k
           , pageLastMod = maximum
@@ -86,24 +91,23 @@ writeSitemap config entries = do
     ]
 
 
-writeFrontPages :: Config -> [(Text, Entry Pandoc Day)] -> IO ()
-writeFrontPages config entries = do
+writeFrontPages :: Config -> [(Text, Entry Pandoc Day)] -> [Keyword] -> IO ()
+writeFrontPages config entries allKeywords = do
   BL.writeFile "index.html"
-    $ renderFrontPage config Nothing
+    $ renderFrontPage config Nothing allKeywords
     $ entriesToHeadline entries
 
-  let keys = [minBound .. maxBound] :: [Keyword]
-  forM_ keys $ \k -> do
+  forM_ allKeywords $ \k -> do
     let name = T.unpack $ displayUrl k
     let entr = filter ((k `elem`) . entryKeywords . snd) $ entries
     createDirectoryIfMissing False name
     BL.writeFile (name </> "index.html")
-      $ renderFrontPage config (Just k)
+      $ renderFrontPage config (Just k) allKeywords
       $ entriesToHeadline entr
 
 
-writeEntries :: Config -> [(Text, Entry Pandoc Day)] -> IO ()
-writeEntries config@Config{..} entries = do
+writeEntries :: Config -> [(Text, Entry Pandoc Day)] -> [Keyword] -> IO ()
+writeEntries config@Config{..} entries allKeywords = do
   latexTemplate <- readFile (".." </> TL.unpack configLatexTemplate)
   forM_ entries $ \(u, e) -> do
     createDirectoryIfMissing False "posts"

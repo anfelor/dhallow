@@ -20,7 +20,6 @@ data Entry a b = Entry
   , entryCreated :: b
   , entryUpdated :: b
   , entryKeywords :: Vector Keyword
-  , entryLanguage :: Language
   , entryImportance :: Importance
   , entryAbstract :: a
   , entryContent :: a
@@ -97,52 +96,32 @@ data PageType = Article Importance | FrontPage
   deriving (Eq, Show)
 
 
--- | The language of a blog post.
-data Language
-  = English
-  | German
-  deriving (Eq, Bounded, Enum, Show, Generic)
-
-instance Interpret Language
-
-
 -- | The place where comments should be posted.
 data Comments
  = Reddit {_redditUrl :: Text}
  | Github -- ^ open a new issue on github.
  deriving (Eq, Show, Generic)
-
 instance Interpret Comments
 
 
+-- | The importance of a blog post.
 data Importance
-  = Ignore
-  | Normal
-  | Promote
+  = Normal -- ^ In doubt, pick this.
+  | Ignore -- ^ Not shown on homepage and low priority in sitemap
+  | Promote -- ^ Highlighted on homepage and high priority in sitemap
   deriving (Eq, Show, Generic)
-
 instance Interpret Importance
+
 
 -- | The keywords for a blog post.
 -- Using Data types instead of text has the advantage,
 -- that posts can be grouped by keyword and also, that
 -- the number of keywords is limited to 100-1000.
-data Keyword
- = Blogging
- | Haskell
- | ReadingList
- | ShortStories
- deriving (Eq, Bounded, Enum, Show, Generic)
+data Keyword = Keyword
+  { keywordTitle :: Dhall.Text
+  , keywordDescription :: Dhall.Text
+  } deriving (Eq, Show, Generic)
+instance Dhall.Interpret Keyword
+instance UrlDisplay Keyword where
+  displayShow = toStrict . keywordTitle
 
-instance Interpret Keyword
-
-instance Display Keyword where
-  displayTitle Haskell = "Haskell"
-  displayTitle ReadingList = "My reading list"
-  displayTitle ShortStories = "Short stories"
-  displayTitle Blogging = "General information"
-
-  displayDescription Haskell = "Haskell is a functional programming language; I try to explain it's concepts."
-  displayDescription ReadingList = "I set myself a goal of reading a book a week and write a small entry about each."
-  displayDescription ShortStories = "I am writing short stories about places, people and things, that left an impression."
-  displayDescription Blogging = "This is a catch-all category for the maintenance of this blog."
