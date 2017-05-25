@@ -5,7 +5,7 @@ import qualified Data.HashSet as Set
 import Data.List (zip3)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
-import Dhall (Interpret(..), Natural, Text, Vector)
+import Dhall (Interpret(..), Natural, Text, Vector, InterpretOptions(..))
 
 
 data DhallDay = DhallDay
@@ -38,7 +38,16 @@ instance (Ord b) => Ord (Entry a b) where
     GT -> GT
     EQ -> comparing entryTitle a b
 
-instance (Interpret a, Interpret b) => Interpret (Entry a b)
+instance (Interpret a, Interpret b) => Interpret (Entry a b) where
+  autoWith d = autoWith $ d { fieldModifier = (dropStart 5) }
+
+
+dropStart :: Int64 -> Text -> Text
+dropStart n = firstLower . TL.drop n
+  where
+    firstLower txt = case TL.uncons txt of
+      Nothing -> txt
+      Just (h, t) -> TL.cons (toLower h) t
 
 
 -- | A blog entry as written by the user.
@@ -161,7 +170,9 @@ data Keyword = Keyword
   { keywordTitle :: Dhall.Text
   , keywordDescription :: Dhall.Text
   } deriving (Eq, Show, Generic)
-instance Dhall.Interpret Keyword
+instance Interpret Keyword where
+  autoWith d = autoWith $ d { fieldModifier = (dropStart 7) }
+
 instance UrlDisplay Keyword where
   displayShow = toStrict . keywordTitle
 
