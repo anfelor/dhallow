@@ -57,6 +57,9 @@ data ProcessedEntry = ProcessedEntry
   , fromProcessedEntry :: Entry Pandoc Day
   } deriving (Eq, Ord, Show)
 
+class Monad m => MonadEntries m where
+  getEntries :: m [ProcessedEntry]
+
 
 processEntries :: [RawEntry] -> Either Text [ProcessedEntry]
 processEntries re = case sequence $ fmap go re of
@@ -161,6 +164,5 @@ instance Dhall.Interpret Keyword
 instance UrlDisplay Keyword where
   displayShow = toStrict . keywordTitle
 
-
 class MonadKeywords m where
-  getUserData :: m [Keyword]
+  getKeywords :: m [Keyword]

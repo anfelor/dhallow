@@ -19,6 +19,7 @@ import Data.Time.Calendar
 data UserData = UserData
   { userKeywords :: [Keyword]
   , userEntries  :: [ProcessedEntry]
+  , userConfig   :: Config
   } deriving (Eq, Show)
 
 newtype Dhallow a = Dhallow
@@ -26,10 +27,17 @@ newtype Dhallow a = Dhallow
   } deriving (Functor, Applicative, Monad, MonadReader UserData, MonadIO)
 
 instance MonadKeywords Dhallow where
-  getUserData = userKeywords <$> ask
+  getKeywords = userKeywords <$> ask
 
-main :: IO ()
-main = do
+instance MonadConfig Dhallow where
+  getConfig = userConfig <$> ask
+
+instance MonadEntries Dhallow where
+  getEntries = userEntries <$> ask
+
+
+runDhallow :: Dhallow a -> IO a
+runDhallow dhallow = do
   posts <- filterM (doesFileExist . ("posts/"++)) =<< listDirectory "posts/"
   rawEntries <- forM posts $ \p -> do
     Dhall.detailed $ Dhall.input
@@ -41,29 +49,33 @@ main = do
     t <- readFile ("keywords/" ++ k)
     Dhall.input Dhall.auto (fromStrict t)
 
-  case processEntries rawEntries of
-    Left e -> fail (TL.unpack e)
-    Right en -> writeFiles en allKeywords
-
-
-writeFiles :: [ProcessedEntry] -> [Keyword] -> IO ()
-writeFiles entries allKeywords = do
   config@Config{..} <- readConfig
 
-  removePathForcibly configFolder
-  createDirectory configFolder
+  case processEntries rawEntries of
+    Left e -> fail (TL.unpack e)
+    Right processedEntries -> do
+      let userData = UserData allKeywords processedEntries config
+      runReaderT (fromDhallow dhallow) userData
+
+main :: IO ()
+main = runDhallow $ do
+  Config{..} <- getConfig
+  liftIO $ removePathForcibly configFolder
+  liftIO $ createDirectory configFolder
   putStrLn $ "Switching into directory '" <> configFolder <> "'."
-  setCurrentDirectory configFolder
+  liftIO $ setCurrentDirectory configFolder
 
-  writeFrontPages config entries allKeywords
-  writeEntries config entries allKeywords
-  writeSitemap config entries allKeywords
+  writeFrontPages
+  writeEntries
+  writeSitemap
 
 
-writeSitemap :: Config -> [ProcessedEntry] -> [Keyword] -> IO ()
-writeSitemap config entries allKeywords = do
-  today <- utctDay <$> getCurrentTime
-  BL.writeFile "sitemap.xml" $ createSitemap config $ (concat :: [[a]] -> [a])
+writeSitemap :: (MonadConfig m, MonadIO m, MonadKeywords m, MonadEntries m) => m ()
+writeSitemap = do
+  entries <- getEntries
+  allKeywords <- getKeywords
+  today <- utctDay <$> liftIO getCurrentTime
+  sitemap <- createSitemap $ (concat :: [[a]] -> [a])
     [ flip map entries $ \(ProcessedEntry url Entry{..}) ->
         PageData
           { pageLocation = url
@@ -92,30 +104,34 @@ writeSitemap config entries allKeywords = do
       , pageType = FrontPage
       }
     ]
+  liftIO $ BL.writeFile "sitemap.xml" sitemap
 
 
-writeFrontPages :: Config -> [ProcessedEntry] -> [Keyword] -> IO ()
-writeFrontPages config entries allKeywords = do
-  BL.writeFile "index.html"
-    $ renderFrontPage config Nothing allKeywords
-    $ map entryToHeadline entries
+writeFrontPages :: (MonadConfig m, MonadIO m, MonadKeywords m, MonadEntries m) => m ()
+writeFrontPages = do
+  entries <- getEntries
+  allKeywords <- getKeywords
+  page <- renderFrontPage Nothing $ map entryToHeadline entries
+  liftIO $ BL.writeFile "index.html" page
 
   forM_ allKeywords $ \k -> do
     let name = T.unpack $ displayUrl k
     let entr = filter ((k `elem`) . entryKeywords . fromProcessedEntry) $ entries
-    createDirectoryIfMissing False name
-    BL.writeFile (name </> "index.html")
-      $ renderFrontPage config (Just k) allKeywords
-      $ map entryToHeadline entr
+    liftIO $ createDirectoryIfMissing False name
+    page <- renderFrontPage (Just k) $ map entryToHeadline entr
+    liftIO $ BL.writeFile (name </> "index.html") page
 
 
-writeEntries :: Config -> [ProcessedEntry] -> [Keyword] -> IO ()
-writeEntries config@Config{..} entries allKeywords = do
-  latexTemplate <- readFile (".." </> TL.unpack configLatexTemplate)
+writeEntries :: (MonadConfig m, MonadIO m, MonadEntries m) => m ()
+writeEntries = do
+  Config{..} <- getConfig
+  entries <- getEntries
+  latexTemplate <- liftIO $ readFile (".." </> TL.unpack configLatexTemplate)
   forM_ entries $ \pe@(ProcessedEntry u e) -> do
-    createDirectoryIfMissing False "posts"
+    liftIO $ createDirectoryIfMissing False "posts"
     putStrLn $ "Writing '" <> u <> "'"
-    BL.writeFile (T.unpack u) $ renderPage config pe
+    page <- renderPage pe
+    liftIO $ BL.writeFile (T.unpack u) $ page
     let pdfOptions = def {
         writerHighlight = True
       , writerTemplate = Just $ T.unpack latexTemplate
@@ -132,9 +148,9 @@ writeEntries config@Config{..} entries allKeywords = do
 
     let pdfname = T.unpack u -<.> ".pdf"
     putStrLn $ "Writing '" <> pdfname <> "'"
-    pdf <- makePDF "xelatex" writeLaTeX pdfOptions (entryContent e)
+    pdf <- liftIO $ makePDF "xelatex" writeLaTeX pdfOptions (entryContent e)
     case pdf of
       Left b -> putStr $ "Error while creating '"
                       <> BL.pack (map (fromIntegral . ord) pdfname)
                       <> "': " <> b
-      Right b -> BL.writeFile pdfname b
+      Right b -> liftIO $ BL.writeFile pdfname b
