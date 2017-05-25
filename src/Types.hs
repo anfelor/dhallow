@@ -70,8 +70,8 @@ instance Exception ProcessingException
 processEntries :: [RawEntry] -> Either ProcessingException [ProcessedEntry]
 processEntries re = do
   entries <- sequence $ fmap (parseEntry . fromRawEntry) re
-  withUrls <- fmap fst $ flip runStateT Set.empty $ mapM addEntryURL $ sort entries
-  pure $ map (uncurry ProcessedEntry) withUrls
+  urls <- fmap fst $ flip runStateT Set.empty $ mapM addEntryURL entries
+  pure $ map (uncurry ProcessedEntry) (zip urls entries)
   where
     parseEntry :: Entry Text DhallDay -> Either ProcessingException (Entry Pandoc Day)
     parseEntry ent =
@@ -85,18 +85,17 @@ processEntries re = do
         (Right p1, Right p2) -> Right $ entry {entryAbstract = p1, entryContent = p2}
 
 
-    addEntryURL :: Ord b => Entry a b -> StateT (Set.HashSet T.Text) (Either ProcessingException) (T.Text, Entry a b)
-    addEntryURL e@Entry{..} = do
+    addEntryURL :: Ord b => Entry a b -> StateT (Set.HashSet T.Text) (Either ProcessingException) T.Text
+    addEntryURL Entry{..} = do
       used <- get
-      let poss = fmap (T.intercalate "-" . fmap displayUrl) $ permutations $ toList entryKeywords
+      let kws = T.intercalate "-" $ fmap displayUrl $ toList entryKeywords
           title = displayUrl (toStrict entryTitle)
-          urls = fmap (\p -> "posts/" <> title <> "-" <> p <> ".html") poss
-          choose = filter (`notElem` used) urls
-      case choose of
-        [] -> lift $ Left CouldntFindUrl
-        (x:_) -> do
-          put (Set.insert x used)
-          pure (x, e)
+          url = "posts/" <> title <> "-" <> kws <> ".html"
+      if url `elem` used
+        then lift $ Left CouldntFindUrl
+        else do
+          put (Set.insert url used)
+          pure url
 
 
 -- | A reduced version of a blog post,
