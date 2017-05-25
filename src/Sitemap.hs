@@ -10,6 +10,7 @@ import Text.Blaze.Internal
 import Text.Blaze.Renderer.Utf8 (renderMarkup)
 import Data.Time.Format
 
+
 createSitemap :: MonadConfig m => [PageData] -> m BL.ByteString
 createSitemap pd = do
   Config{..} <- getConfig

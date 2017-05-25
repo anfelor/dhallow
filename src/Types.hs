@@ -61,36 +61,39 @@ class Monad m => MonadEntries m where
   getEntries :: m [ProcessedEntry]
 
 
-processEntries :: [RawEntry] -> Either Text [ProcessedEntry]
-processEntries re = case sequence $ fmap go re of
-  Left t -> Left t
-  Right ent -> case addEntryURLs $ fmap fromProcessedEntry ent of
-    Left e -> Left (show e)
-    Right es -> Right $ map (uncurry ProcessedEntry) es
+data ProcessingException
+  = PandocException PandocError
+  | CouldntFindUrl
+  deriving (Show)
+instance Exception ProcessingException
+
+processEntries :: [RawEntry] -> Either ProcessingException [ProcessedEntry]
+processEntries re = do
+  entries <- sequence $ fmap (parseEntry . fromRawEntry) re
+  withUrls <- fmap fst $ flip runStateT Set.empty $ mapM addEntryURL $ sort entries
+  pure $ map (uncurry ProcessedEntry) withUrls
   where
-    go (RawEntry ent) =
+    parseEntry :: Entry Text DhallDay -> Either ProcessingException (Entry Pandoc Day)
+    parseEntry ent =
       let entry = ent {
             entryCreated = (\DhallDay{..} -> fromGregorian (fromIntegral year) (fromIntegral month) (fromIntegral day)) (entryCreated ent)
           , entryUpdated = (\DhallDay{..} -> fromGregorian (fromIntegral year) (fromIntegral month) (fromIntegral day)) (entryUpdated ent)
           }
       in case (readMarkdown def (TL.unpack $ entryAbstract entry), readMarkdown def (TL.unpack $ entryContent entry)) of
-        (Left p1, _) -> Left $ "Encountered pandoc error: " <> show p1
-        (_, Left p2) -> Left $ "Encountered pandoc error: " <> show p2
-        (Right p1, Right p2) -> Right $ ProcessedEntry "" $ entry {entryAbstract = p1, entryContent = p2}
+        (Left p1, _) -> Left $ PandocException p1
+        (_, Left p2) -> Left $ PandocException p2
+        (Right p1, Right p2) -> Right $ entry {entryAbstract = p1, entryContent = p2}
 
 
-addEntryURLs :: Ord b => [Entry a b] -> Either (Entry a b) [(T.Text, Entry a b)]
-addEntryURLs = fmap fst . flip runStateT Set.empty . mapM go . sort
-  where
-    go :: Entry a b -> StateT (Set.HashSet T.Text) (Either (Entry a b)) (T.Text, Entry a b)
-    go e@Entry{..} = do
+    addEntryURL :: Ord b => Entry a b -> StateT (Set.HashSet T.Text) (Either ProcessingException) (T.Text, Entry a b)
+    addEntryURL e@Entry{..} = do
       used <- get
       let poss = fmap (T.intercalate "-" . fmap displayUrl) $ permutations $ toList entryKeywords
           title = displayUrl (toStrict entryTitle)
           urls = fmap (\p -> "posts/" <> title <> "-" <> p <> ".html") poss
           choose = filter (`notElem` used) urls
       case choose of
-        [] -> lift (Left e)
+        [] -> lift $ Left CouldntFindUrl
         (x:_) -> do
           put (Set.insert x used)
           pure (x, e)

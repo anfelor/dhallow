@@ -8,6 +8,7 @@ import Config
 
 import qualified Dhall
 
+import Control.Exception
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
@@ -52,7 +53,7 @@ runDhallow dhallow = do
   config@Config{..} <- readConfig
 
   case processEntries rawEntries of
-    Left e -> fail (TL.unpack e)
+    Left e -> fail (displayException e)
     Right processedEntries -> do
       let userData = UserData allKeywords processedEntries config
       runReaderT (fromDhallow dhallow) userData
@@ -92,14 +93,14 @@ writeSitemap = do
         PageData
           { pageLocation = displayUrl k
           , pageLastMod = maximum
-              $ (addDays (-1000) today:)
+              $ (addDays (-3000) today:) -- in case the category is empty
               $ map (entryUpdated . fromProcessedEntry) $ filter ((k `elem`) . entryKeywords . fromProcessedEntry) $ entries
           , pageType = FrontPage
           }
     , (:[]) $ PageData
       { pageLocation = "index.html"
       , pageLastMod = maximum
-              $ (addDays (-1000) today:)
+              $ (addDays (-3000) today:) -- in case there are no entries
               $ map (entryUpdated . fromProcessedEntry) $ entries
       , pageType = FrontPage
       }
