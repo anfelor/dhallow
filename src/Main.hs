@@ -4,7 +4,6 @@ import Imports
 import Page
 import Types
 import Sitemap
-import Config
 
 import qualified Dhall
 
@@ -52,7 +51,8 @@ runDhallow dhallow = do
     t <- readFile ("keywords/" ++ k)
     Dhall.input Dhall.auto (fromStrict t)
 
-  config@Config{..} <- readConfig
+  file <- readFile "config.dhall"
+  config@Config{..} <- Dhall.input Dhall.auto (fromStrict file)
 
   case processEntries rawEntries of
     Left e -> fail (displayException e)
@@ -64,7 +64,7 @@ main :: IO ()
 main = runDhallow $ do
   Config{..} <- getConfig
   putStrLn $ "Switching into directory '" <> configFolder <> "'."
-  liftIO $ setCurrentDirectory configFolder
+  liftIO $ setCurrentDirectory $ TL.unpack configFolder
 
   writeFrontPages
   writeEntries

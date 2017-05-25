@@ -1,11 +1,12 @@
 module Types where
 
+import GHC.Generics (to)
 import Imports hiding (Text)
 import qualified Data.HashSet as Set
 import Data.List (zip3)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
-import Dhall (Interpret(..), Natural, Text, Vector, InterpretOptions(..))
+import Dhall (Interpret(..), Natural, Text, Vector, InterpretOptions(..), defaultInterpretOptions, genericAutoWith)
 
 
 data DhallDay = DhallDay
@@ -14,7 +15,9 @@ data DhallDay = DhallDay
   , day :: Natural
   } deriving (Eq, Ord, Show, Generic)
 
-instance Interpret DhallDay
+instance Interpret DhallDay where
+  autoWith _ = fmap GHC.Generics.to $ genericAutoWith defaultInterpretOptions
+
 
 -- | The structure of a blog entry.
 -- See below for specialized versions.
@@ -39,7 +42,8 @@ instance (Ord b) => Ord (Entry a b) where
     EQ -> comparing entryTitle a b
 
 instance (Interpret a, Interpret b) => Interpret (Entry a b) where
-  autoWith d = autoWith $ d { fieldModifier = (dropStart 5) }
+  autoWith _ = fmap GHC.Generics.to $ genericAutoWith defaultInterpretOptions
+    { fieldModifier = dropStart 5 }
 
 
 dropStart :: Int64 -> Text -> Text
@@ -150,7 +154,11 @@ data Comments
  = Reddit {_redditUrl :: Text}
  | Github -- ^ open a new issue on github.
  deriving (Eq, Show, Generic)
-instance Interpret Comments
+
+instance Interpret Comments where
+  autoWith _ = fmap GHC.Generics.to $ genericAutoWith defaultInterpretOptions
+    { fieldModifier = const "url" }
+
 
 
 -- | The importance of a blog post.
@@ -170,11 +178,68 @@ data Keyword = Keyword
   { keywordTitle :: Dhall.Text
   , keywordDescription :: Dhall.Text
   } deriving (Eq, Show, Generic)
+
 instance Interpret Keyword where
-  autoWith d = autoWith $ d { fieldModifier = (dropStart 7) }
+  autoWith _ = fmap GHC.Generics.to $ genericAutoWith defaultInterpretOptions
+    { fieldModifier = dropStart 7 }
 
 instance UrlDisplay Keyword where
   displayShow = toStrict . keywordTitle
 
 class MonadKeywords m where
   getKeywords :: m [Keyword]
+
+
+data Config = Config
+  { configCss :: Vector CssConfig
+  , configJs :: Vector JsConfig
+  , configLatexTemplate :: Text
+  , configDomain :: Text
+  , configHttps :: Bool
+  , configAuthor :: Text
+  , configSiteName :: Text
+  , configFolder :: Text
+  , configTwitter :: Maybe TwitterConfig
+  , configLocale :: Text
+  } deriving (Eq, Show, Generic)
+
+instance Interpret Config where
+  autoWith _ = fmap GHC.Generics.to $ genericAutoWith defaultInterpretOptions
+    { fieldModifier = dropStart 6 }
+
+
+newtype CssConfig = CssConfig
+  { cssSrc :: Dhall.Text
+  } deriving (Eq, Show, Generic)
+
+instance Interpret CssConfig where
+  autoWith _ = fmap GHC.Generics.to $ genericAutoWith defaultInterpretOptions
+    { fieldModifier = dropStart 3 }
+
+
+data JsConfig = JsConfig
+  { jsSrc :: Dhall.Text
+  , jsAsLastElement :: Bool
+  } deriving (Eq, Show, Generic)
+
+instance Interpret JsConfig where
+  autoWith _ = fmap GHC.Generics.to $ genericAutoWith defaultInterpretOptions
+    { fieldModifier = dropStart 2 }
+
+
+data TwitterConfig = TwitterConfig
+  { twitterHandle :: Dhall.Text
+  , twitterImageUrl :: Dhall.Text
+  } deriving (Eq, Show, Generic)
+
+instance Interpret TwitterConfig where
+  autoWith _ = fmap GHC.Generics.to $ genericAutoWith defaultInterpretOptions
+    { fieldModifier = dropStart 7 }
+
+
+-- | A monad which can access the config.
+-- This could have a default implementation
+-- `getConfig = liftIO readConfig`
+-- but that might cause issues with System.Directory.setDirectory.
+class Monad m => MonadConfig m where
+  getConfig :: m Config

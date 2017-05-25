@@ -55,7 +55,6 @@ executable dhallow
   else
     ghc-options: -O0
   other-modules:
-      Config
       Imports
       Page
       Sitemap

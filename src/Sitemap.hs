@@ -2,7 +2,6 @@ module Sitemap where
 
 import Imports hiding (head, link, div, map)
 import Types
-import Config
 
 import qualified Data.ByteString.Lazy as BL
 import Text.Blaze

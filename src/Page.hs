@@ -4,7 +4,6 @@ module Page where
 
 import Imports hiding (head, link, div, map)
 import Types
-import Config
 import Dhall (Vector)
 
 import Text.Pandoc.Walk
@@ -89,7 +88,7 @@ standardPage Page{..} = do
         forM_ configCss $ \CssConfig{..} -> do
           link ! rel "stylesheet" ! href (toValue cssSrc)
 
-        forM_ (filter (\JsConfig{..} -> not jsAsLastElement) configJs) $ \JsConfig{..} -> do
+        forM_ (filter (\JsConfig{..} -> not jsAsLastElement) (toList configJs)) $ \JsConfig{..} -> do
           script ! src (toValue jsSrc) $ ""
       body $ do
         div ! id "layout" $ do
@@ -115,7 +114,7 @@ standardPage Page{..} = do
                 a ! href "/blog/imprint.html" $ "Imprint"
               div ! id "privacy-link" $ do
                 a ! href "/blog/privacy.html" $ "Privacy"
-        forM_ (filter (\JsConfig{..} -> jsAsLastElement) configJs) $ \JsConfig{..} -> do
+        forM_ (filter (\JsConfig{..} -> jsAsLastElement) (toList configJs)) $ \JsConfig{..} -> do
           script ! src (toValue jsSrc) $ ""
   where
     toAttr = toValue . TextRenderer.renderMarkup . contents
