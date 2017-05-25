@@ -41,9 +41,9 @@ runDhallow :: Dhallow a -> IO a
 runDhallow dhallow = do
   posts <- filterM (doesFileExist . ("posts/"++)) =<< listDirectory "posts/"
   rawEntries <- forM posts $ \p -> do
-    Dhall.detailed $ Dhall.input
-      (Dhall.auto :: Dhall.Type RawEntry)
+    ent <- Dhall.detailed $ Dhall.input Dhall.auto
       (TL.pack $ "./posts/" ++ p)
+    pure (RawEntry ent)
 
   keywordFiles <- filterM (doesFileExist . ("keywords/"++)) =<< listDirectory "keywords/"
   allKeywords <- forM keywordFiles $ \k -> do
