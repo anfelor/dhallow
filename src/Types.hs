@@ -3,6 +3,7 @@ module Types where
 import Imports hiding (Text)
 import qualified Data.HashSet as Set
 import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
 import Dhall (Interpret(..), Natural, Text, Vector)
 
 
@@ -10,11 +11,12 @@ data DhallDay = DhallDay
   { year :: Natural
   , month :: Natural
   , day :: Natural
-  } deriving (Eq, Show, Generic)
+  } deriving (Eq, Ord, Show, Generic)
 
 instance Interpret DhallDay
 
--- | A blog entry.
+-- | The structure of a blog entry.
+-- See below for specialized versions.
 data Entry a b = Entry
   { entryTitle :: Text
   , entryCreated :: b
@@ -38,23 +40,40 @@ instance (Ord b) => Ord (Entry a b) where
 
 instance (Interpret a, Interpret b) => Interpret (Entry a b)
 
--- | A reduced version of a blog post,
--- featuring only information used in the
--- overview pages.
-data Headline = Headline
-  { headlineTitle :: Text
-  , headlineCreated :: Day
-  , headlineUpdated :: Day
-  , headlineKeywords :: Vector Keyword
-  , headlineURL :: T.Text
-  , headlineAbstract :: String
-  } deriving (Eq, Show)
 
-instance Ord Headline where
-  compare h g = case comparing headlineCreated h g of
-    LT -> LT
-    GT -> GT
-    EQ -> comparing headlineTitle h g
+-- | A blog entry as written by the user.
+newtype RawEntry = RawEntry
+  { fromRawEntry :: Entry Text DhallDay
+  } deriving (Eq, Ord, Show, Generic)
+
+instance Interpret RawEntry
+
+
+-- | The processing step includes parsing the text with pandoc,
+-- making the datastructures more Haskell friendly and
+-- adding a generated url field.
+data ProcessedEntry = ProcessedEntry
+  { entryUrl :: T.Text
+  , fromProcessedEntry :: Entry Pandoc Day
+  } deriving (Eq, Ord, Show)
+
+
+processEntries :: [RawEntry] -> Either Text [ProcessedEntry]
+processEntries re = case sequence $ fmap go re of
+  Left t -> Left t
+  Right ent -> case addEntryURLs $ fmap fromProcessedEntry ent of
+    Left e -> Left (show e)
+    Right es -> Right $ map (uncurry ProcessedEntry) es
+  where
+    go (RawEntry ent) =
+      let entry = ent {
+            entryCreated = (\DhallDay{..} -> fromGregorian (fromIntegral year) (fromIntegral month) (fromIntegral day)) (entryCreated ent)
+          , entryUpdated = (\DhallDay{..} -> fromGregorian (fromIntegral year) (fromIntegral month) (fromIntegral day)) (entryUpdated ent)
+          }
+      in case (readMarkdown def (TL.unpack $ entryAbstract entry), readMarkdown def (TL.unpack $ entryContent entry)) of
+        (Left p1, _) -> Left $ "Encountered pandoc error: " <> show p1
+        (_, Left p2) -> Left $ "Encountered pandoc error: " <> show p2
+        (Right p1, Right p2) -> Right $ ProcessedEntry "" $ entry {entryAbstract = p1, entryContent = p2}
 
 
 addEntryURLs :: Ord b => [Entry a b] -> Either (Entry a b) [(T.Text, Entry a b)]
@@ -73,10 +92,27 @@ addEntryURLs = fmap fst . flip runStateT Set.empty . mapM go . sort
           put (Set.insert x used)
           pure (x, e)
 
-entriesToHeadline :: [(T.Text, Entry Pandoc Day)] -> [Headline]
-entriesToHeadline = fmap go
-  where
-    go (url, Entry {..}) = Headline
+
+-- | A reduced version of a blog post,
+-- featuring only information used in the
+-- overview pages.
+data Headline = Headline
+  { headlineTitle :: Text
+  , headlineCreated :: Day
+  , headlineUpdated :: Day
+  , headlineKeywords :: Vector Keyword
+  , headlineURL :: T.Text
+  , headlineAbstract :: String
+  } deriving (Eq, Show)
+
+instance Ord Headline where
+  compare h g = case comparing headlineCreated h g of
+    LT -> LT
+    GT -> GT
+    EQ -> comparing headlineTitle h g
+
+entryToHeadline :: ProcessedEntry -> Headline
+entryToHeadline (ProcessedEntry url Entry {..}) = Headline
       { headlineTitle = entryTitle
       , headlineCreated = entryCreated
       , headlineUpdated = entryUpdated
@@ -125,3 +161,6 @@ instance Dhall.Interpret Keyword
 instance UrlDisplay Keyword where
   displayShow = toStrict . keywordTitle
 
+
+class MonadKeywords m where
+  getUserData :: m [Keyword]

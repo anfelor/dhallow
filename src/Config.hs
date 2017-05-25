@@ -3,6 +3,7 @@ module Config
   , CssConfig(..)
   , JsConfig(..)
   , TwitterConfig(..)
+  , MonadConfig(..)
   , readConfig
   ) where
 
@@ -60,6 +61,13 @@ data TwitterConfig = TwitterConfig
   , twitterImageUrl :: Dhall.Text
   } deriving (Eq, Show, Generic)
 instance Dhall.Interpret TwitterConfig
+
+-- | A monad which can access the config.
+-- This could have a default implementation
+-- `getConfig = liftIO readConfig`
+-- but that might cause issues with System.Directory.setDirectory.
+class Monad m => MonadConfig m where
+  getConfig :: m Config
 
 readConfig :: IO Config
 readConfig = do

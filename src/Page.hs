@@ -157,8 +157,8 @@ allHeaders pan@(Pandoc mt _)= query go pan
     go (Header n _ inl) = [(n, Pandoc mt [Plain inl])]
     go _ = []
 
-renderPage :: Config -> (Text, Entry Pandoc Day) -> BL.ByteString
-renderPage config@Config{..} (url, Entry{..}) = standardPage config $ Page
+renderPage :: Config -> ProcessedEntry -> BL.ByteString
+renderPage config@Config{..} (ProcessedEntry url Entry{..}) = standardPage config $ Page
   { pageTitle = toMarkup entryTitle
   , pageDescription = toMarkup $ writeHtml def entryAbstract
   , pageUrl = url
