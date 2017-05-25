@@ -31,7 +31,7 @@ data Page = Page
 data PageInfo = PageInfo
   { pageKeywords :: Vector Keyword
   , pageCreated :: Day
-  , pageUpdated :: Day
+  , pageUpdated :: UTCTime
   }
 
 standardPage :: MonadConfig m => Page -> m BL.ByteString
@@ -162,14 +162,14 @@ allHeaders pan@(Pandoc mt _)= query go pan
     go _ = []
 
 renderPage :: MonadConfig m => ProcessedEntry -> m BL.ByteString
-renderPage (ProcessedEntry url Entry{..}) = standardPage $ Page
+renderPage (ProcessedEntry url entryModified Entry{..}) = standardPage $ Page
   { pageTitle = toMarkup entryTitle
   , pageDescription = toMarkup $ writeHtml def entryAbstract
   , pageUrl = url
   , pageInfo = Just $ PageInfo
     { pageKeywords = entryKeywords
     , pageCreated = entryCreated
-    , pageUpdated = entryUpdated
+    , pageUpdated = entryModified
     }
   -- TODO: Use the level information to build a nested tree of headlines.
   , sidebarTop = ul ! class_ "pure-menu-list"

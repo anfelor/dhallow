@@ -2,6 +2,7 @@ module Types where
 
 import Imports hiding (Text)
 import qualified Data.HashSet as Set
+import Data.List (zip3)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import Dhall (Interpret(..), Natural, Text, Vector)
@@ -20,7 +21,6 @@ instance Interpret DhallDay
 data Entry a b = Entry
   { entryTitle :: Text
   , entryCreated :: b
-  , entryUpdated :: b
   , entryKeywords :: Vector Keyword
   , entryImportance :: Importance
   , entryAbstract :: a
@@ -42,11 +42,10 @@ instance (Interpret a, Interpret b) => Interpret (Entry a b)
 
 
 -- | A blog entry as written by the user.
-newtype RawEntry = RawEntry
+data RawEntry = RawEntry
   { fromRawEntry :: Entry Text DhallDay
+  , rawEntryModified :: UTCTime
   } deriving (Eq, Ord, Show, Generic)
-
-instance Interpret RawEntry
 
 
 -- | The processing step includes parsing the text with pandoc,
@@ -54,6 +53,7 @@ instance Interpret RawEntry
 -- adding a generated url field.
 data ProcessedEntry = ProcessedEntry
   { entryUrl :: T.Text
+  , entryModified :: UTCTime
   , fromProcessedEntry :: Entry Pandoc Day
   } deriving (Eq, Ord, Show)
 
@@ -71,13 +71,12 @@ processEntries :: [RawEntry] -> Either ProcessingException [ProcessedEntry]
 processEntries re = do
   entries <- sequence $ fmap (parseEntry . fromRawEntry) re
   urls <- fmap fst $ flip runStateT Set.empty $ mapM addEntryURL entries
-  pure $ map (uncurry ProcessedEntry) (zip urls entries)
+  pure $ map (\(u, r, e) -> ProcessedEntry u r e) (zip3 urls (fmap rawEntryModified re) entries)
   where
     parseEntry :: Entry Text DhallDay -> Either ProcessingException (Entry Pandoc Day)
     parseEntry ent =
       let entry = ent {
             entryCreated = (\DhallDay{..} -> fromGregorian (fromIntegral year) (fromIntegral month) (fromIntegral day)) (entryCreated ent)
-          , entryUpdated = (\DhallDay{..} -> fromGregorian (fromIntegral year) (fromIntegral month) (fromIntegral day)) (entryUpdated ent)
           }
       in case (readMarkdown def (TL.unpack $ entryAbstract entry), readMarkdown def (TL.unpack $ entryContent entry)) of
         (Left p1, _) -> Left $ PandocException p1
@@ -104,7 +103,7 @@ processEntries re = do
 data Headline = Headline
   { headlineTitle :: Text
   , headlineCreated :: Day
-  , headlineUpdated :: Day
+  , headlineUpdated :: UTCTime
   , headlineKeywords :: Vector Keyword
   , headlineURL :: T.Text
   , headlineAbstract :: String
@@ -117,10 +116,10 @@ instance Ord Headline where
     EQ -> comparing headlineTitle h g
 
 entryToHeadline :: ProcessedEntry -> Headline
-entryToHeadline (ProcessedEntry url Entry {..}) = Headline
+entryToHeadline (ProcessedEntry url entryModified Entry {..}) = Headline
       { headlineTitle = entryTitle
       , headlineCreated = entryCreated
-      , headlineUpdated = entryUpdated
+      , headlineUpdated = entryModified
       , headlineKeywords = entryKeywords
       , headlineAbstract = writeHtmlString def entryAbstract
       , headlineURL = url
@@ -129,7 +128,7 @@ entryToHeadline (ProcessedEntry url Entry {..}) = Headline
 
 data PageData = PageData
   { pageLocation :: T.Text
-  , pageLastMod :: Day
+  , pageLastMod :: UTCTime
   , pageType :: PageType
   } deriving (Eq, Show)
 

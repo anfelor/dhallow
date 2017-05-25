@@ -14,7 +14,7 @@ import Data.List.Split as Exports
 import Data.List.NonEmpty as Exports (NonEmpty)
 import Data.String as Exports
 import Data.Text as Exports (Text)
-import Data.Time as Exports (Day, fromGregorian)
+import Data.Time as Exports (Day, fromGregorian, UTCTime)
 import Data.Hashable as Exports
 
 import System.Directory as Exports

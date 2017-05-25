@@ -15,6 +15,7 @@ import qualified Data.Text.Lazy as TL
 import Text.Pandoc.PDF
 import Data.Time.Clock
 import Data.Time.Calendar
+import System.IO.Error (IOError)
 
 
 data UserData = UserData
@@ -43,7 +44,8 @@ runDhallow dhallow = do
   rawEntries <- forM posts $ \p -> do
     ent <- Dhall.detailed $ Dhall.input Dhall.auto
       (TL.pack $ "./posts/" ++ p)
-    pure (RawEntry ent)
+    utc <- getModificationTime $ "posts/" ++ p
+    pure (RawEntry ent utc)
 
   keywordFiles <- filterM (doesFileExist . ("keywords/"++)) =<< listDirectory "keywords/"
   allKeywords <- forM keywordFiles $ \k -> do
@@ -61,8 +63,6 @@ runDhallow dhallow = do
 main :: IO ()
 main = runDhallow $ do
   Config{..} <- getConfig
-  liftIO $ removePathForcibly configFolder
-  liftIO $ createDirectory configFolder
   putStrLn $ "Switching into directory '" <> configFolder <> "'."
   liftIO $ setCurrentDirectory configFolder
 
@@ -77,31 +77,31 @@ writeSitemap = do
   allKeywords <- getKeywords
   today <- utctDay <$> liftIO getCurrentTime
   sitemap <- createSitemap $ (concat :: [[a]] -> [a])
-    [ flip map entries $ \(ProcessedEntry url Entry{..}) ->
+    [ flip map entries $ \(ProcessedEntry url entryModified Entry{..}) ->
         PageData
           { pageLocation = url
-          , pageLastMod = entryUpdated
+          , pageLastMod = entryModified
           , pageType = Article entryImportance
           }
-    , flip map entries $ \(ProcessedEntry url Entry{..}) ->
+    , flip map entries $ \(ProcessedEntry url entryModified Entry{..}) ->
         PageData
           { pageLocation = T.pack $ T.unpack url -<.> ".pdf"
-          , pageLastMod = entryUpdated
+          , pageLastMod = entryModified
           , pageType = Article entryImportance
           }
     , flip map allKeywords $ \k -> do
         PageData
           { pageLocation = displayUrl k
           , pageLastMod = maximum
-              $ (addDays (-3000) today:) -- in case the category is empty
-              $ map (entryUpdated . fromProcessedEntry) $ filter ((k `elem`) . entryKeywords . fromProcessedEntry) $ entries
+              $ (UTCTime (addDays (-3000) today) 0:) -- in case the category is empty
+              $ map entryModified $ filter ((k `elem`) . entryKeywords . fromProcessedEntry) $ entries
           , pageType = FrontPage
           }
     , (:[]) $ PageData
       { pageLocation = "index.html"
       , pageLastMod = maximum
-              $ (addDays (-3000) today:) -- in case there are no entries
-              $ map (entryUpdated . fromProcessedEntry) $ entries
+              $ (UTCTime (addDays (-3000) today) 0:) -- in case there are no entries
+              $ map entryModified entries
       , pageType = FrontPage
       }
     ]
@@ -128,30 +128,34 @@ writeEntries = do
   Config{..} <- getConfig
   entries <- getEntries
   latexTemplate <- liftIO $ readFile (".." </> TL.unpack configLatexTemplate)
-  forM_ entries $ \pe@(ProcessedEntry u e) -> do
+  forM_ entries $ \pe@(ProcessedEntry u entryModified e) -> do
     liftIO $ createDirectoryIfMissing False "posts"
-    putStrLn $ "Writing '" <> u <> "'"
-    page <- renderPage pe
-    liftIO $ BL.writeFile (T.unpack u) $ page
-    let pdfOptions = def {
-        writerHighlight = True
-      , writerTemplate = Just $ T.unpack latexTemplate
-      , writerVariables =
-        [ ("title", TL.unpack $ entryTitle e)
-        , ("author", TL.unpack $ configAuthor)
-        , ("documentclass", "article")
-        , ("papersize", "a4")
-        , ("fontsize", "12pt")
-        , ("linestretch", "1.5")
-        , ("geometry", "margin=3cm")
-        ]
-      }
 
-    let pdfname = T.unpack u -<.> ".pdf"
-    putStrLn $ "Writing '" <> pdfname <> "'"
-    pdf <- liftIO $ makePDF "xelatex" writeLaTeX pdfOptions (entryContent e)
-    case pdf of
-      Left b -> putStr $ "Error while creating '"
-                      <> BL.pack (map (fromIntegral . ord) pdfname)
-                      <> "': " <> b
-      Right b -> liftIO $ BL.writeFile pdfname b
+    utc <- liftIO $ try $ getAccessTime (T.unpack u)
+    when (either (const True) (<entryModified)
+                 (utc :: Either IOError UTCTime)) $ do
+      putStrLn $ "Writing '" <> u <> "'"
+      page <- renderPage pe
+      liftIO $ BL.writeFile (T.unpack u) $ page
+      let pdfOptions = def {
+          writerHighlight = True
+        , writerTemplate = Just $ T.unpack latexTemplate
+        , writerVariables =
+          [ ("title", TL.unpack $ entryTitle e)
+          , ("author", TL.unpack $ configAuthor)
+          , ("documentclass", "article")
+          , ("papersize", "a4")
+          , ("fontsize", "12pt")
+          , ("linestretch", "1.5")
+          , ("geometry", "margin=3cm")
+          ]
+        }
+
+      let pdfname = T.unpack u -<.> ".pdf"
+      putStrLn $ "Writing '" <> pdfname <> "'"
+      pdf <- liftIO $ makePDF "xelatex" writeLaTeX pdfOptions (entryContent e)
+      case pdf of
+        Left b -> putStr $ "Error while creating '"
+                        <> BL.pack (map (fromIntegral . ord) pdfname)
+                        <> "': " <> b
+        Right b -> liftIO $ BL.writeFile pdfname b
